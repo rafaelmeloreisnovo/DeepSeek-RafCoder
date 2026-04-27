@@ -499,3 +499,17 @@ No fim dos 42 passos, imprime um resumo coletivo para leitura operacional do atr
 2. cálculo de entropia mais fiel no modo estrito sem dependências;
 3. alvo de build dedicado com flags rígidas e CI determinístico;
 4. matriz de compatibilidade por microarquitetura.
+
+## Android native build (JNI/NDK)
+
+Este repositório agora inclui um projeto Android em `android/` com integração JNI + CMake + NDK (sem binários versionados no repositório) para ABIs `armeabi-v7a` e `arm64-v8a`.
+
+### Build local
+
+```bash
+./scripts/android_build_matrix.sh
+```
+
+### CI de artefatos
+
+O workflow `.github/workflows/android-native-ci.yml` gera APK debug/release unsigned e release assinado (quando secrets de assinatura existem), com upload automático de artefatos.
