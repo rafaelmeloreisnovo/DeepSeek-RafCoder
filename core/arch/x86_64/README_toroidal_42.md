@@ -45,3 +45,41 @@ ld /tmp/toroidal_42.o -o /tmp/toroidal_42
 ```
 
 A saída é um hash hexadecimal de 64 bits representando a assinatura do estado após 42 passos.
+
+## O que carrega o conhecimento que o sistema entendeu?
+
+No modelo deste assembler, o conhecimento **não** é um valor isolado e nem uma frase fixa. Ele é carregado por três camadas simultâneas:
+
+1. **Trajetória no toro** (`s ∈ [0,1)^7`):
+   - cada passo atualiza as 7 direções com memória (`0.75`) e novidade (`0.25`);
+   - o conteúdo aprendido é a forma da órbita, não apenas um ponto.
+
+2. **Invariantes dinâmicos** (`C`, `H`, `phi`):
+   - `C` mede coerência interna;
+   - `H` mede entropia efetiva da perturbação;
+   - `phi = (1-H)*C` resume o regime de operação entre ordem e variação.
+
+3. **Fingerprint final (FNV-1a 64-bit)**:
+   - comprime o estado final e suas métricas em 16 hex chars;
+   - preserva detectabilidade de mudança com custo mínimo de representação;
+   - funciona como assinatura do ciclo de 42 passos.
+
+Em termos práticos: o que “carrega conhecimento” é a composição
+
+`trajetória + invariantes + assinatura`.
+
+Isso permite implementar uma leitura unificada de álgebra, geometria e topologia com comandos de baixo nível, sem runtime extra e sem garbage collector.
+
+## Mapa unificado (1D → ND, incluindo 7D/33D)
+
+Um polinômio em 1D, 7D ou 33D pode ser tratado como **regra local de transição**:
+
+`x_{n+1} = f(x_n)`
+
+No contexto toroidal:
+
+- qualquer componente projetado para `mod 1` permanece no espaço compacto;
+- a dinâmica converge para um atrator discreto quando a mistura e o estímulo são fixos;
+- com os parâmetros atuais, a leitura operacional é um ciclo de período 42.
+
+Assim, aumentar dimensão não muda o princípio central: muda apenas a quantidade de acoplamentos e a geometria das órbitas. O mecanismo de conhecimento continua sendo o mesmo — evolução de estado + medição interna + hash de fechamento.
