@@ -449,3 +449,53 @@ See the [LICENSE-CODE](LICENSE-CODE) and [LICENSE-MODEL](LICENSE-MODEL) for more
 ### 11. Contact
 
 If you have any questions, please raise an issue or contact us at [service@deepseek.com](mailto:service@deepseek.com).
+
+---
+
+## RAFAELOS Core (Low-Level Toroidal Kernel)
+
+Este repositório agora inclui um núcleo toroidal em NASM x86_64 com foco explícito em execução de baixo nível:
+
+- sem libc;
+- sem garbage collector;
+- sem heap no núcleo;
+- sem overhead de abstrações;
+- syscalls Linux diretas.
+
+### Arquivos adicionados
+
+- `rafaelos.asm`: implementação base do estado toroidal `T^7` em assembly puro.
+- `docs/rafaelos_unified_map.md`: formalização matemática unificada (50 equações) e leitura em camadas.
+- `docs/rafaelos_operational_manual.md`: manual vivo com metodologia obrigatória (IA + Humanos).
+- `docs/rafaelos_bug_and_pending_map.md`: mapa versionado de bugs lógicos e pendências.
+- `docs/rafaelos_release_notes.md`: release notes rastreáveis do núcleo.
+
+### Build e execução
+
+```bash
+nasm -f elf64 rafaelos.asm -o rafaelos.o
+ld rafaelos.o -o rafaelos
+./rafaelos
+```
+
+### Modelo matemático usado
+
+A dinâmica central usa atualização exponencial com `α = 0.25` no estado
+`\mathbf{s}=(u,v,\psi,\chi,\rho,\delta,\sigma) \in [0,1)^7`, mapeado sobre `\mathbb{T}^7=(\mathbb{R}/\mathbb{Z})^7`, com coerência escalar `\phi=(1-H)\cdot C`.
+
+### Agrupamento por resultado (coletivo)
+
+O executável faz agrupamento do resultado de `phi` em buckets:
+
+- `LOW`  em `[0.0000, 0.1000)`
+- `MID`  em `[0.1000, 0.3000)`
+- `HIGH` em `[0.3000, 1.0000)`
+
+No fim dos 42 passos, imprime um resumo coletivo para leitura operacional do atrator.
+
+### Roadmap operacional (resumo)
+
+1. fallback SSE2 para remover dependência de `roundsd`;
+2. cálculo de entropia mais fiel no modo estrito sem dependências;
+3. alvo de build dedicado com flags rígidas e CI determinístico;
+4. matriz de compatibilidade por microarquitetura.
