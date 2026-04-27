@@ -449,3 +449,34 @@ See the [LICENSE-CODE](LICENSE-CODE) and [LICENSE-MODEL](LICENSE-MODEL) for more
 ### 11. Contact
 
 If you have any questions, please raise an issue or contact us at [service@deepseek.com](mailto:service@deepseek.com).
+
+---
+
+## RAFAELOS Core (Low-Level Toroidal Kernel)
+
+Este repositório agora inclui um núcleo toroidal em NASM x86_64 com foco explícito em execução de baixo nível:
+
+- sem libc;
+- sem garbage collector;
+- sem heap no núcleo;
+- sem overhead de abstrações;
+- syscalls Linux diretas.
+
+### Arquivos adicionados
+
+- `rafaelos.asm`: implementação base do estado toroidal `T^7` em assembly puro.
+- `docs/rafaelos_unified_map.md`: formalização matemática unificada (50 equações) e leitura em camadas.
+
+### Build e execução
+
+```bash
+nasm -f elf64 rafaelos.asm -o rafaelos.o
+ld rafaelos.o -o rafaelos
+./rafaelos
+```
+
+### Modelo matemático usado
+
+A dinâmica central usa atualização exponencial com `α = 0.25` no estado
+`\mathbf{s}=(u,v,\psi,\chi,\rho,\delta,\sigma) \in [0,1)^7`, mapeado sobre `\mathbb{T}^7=(\mathbb{R}/\mathbb{Z})^7`, com coerência escalar `\phi=(1-H)\cdot C`.
+
