@@ -5,6 +5,7 @@
 - Native core: `android/app/src/main/cpp/native-lib.cpp`
 - ABI targets: `armeabi-v7a`, `arm64-v8a`, `x86_64`
 - CI workflow: `.github/workflows/android-native-ci.yml`
+- Official build tool entrypoint: `android/gradlew` (`android/gradlew.bat` on Windows)
 
 ## Artifact map (CI)
 - Debug unsigned APK: `android/artifacts/debug/` (artifact `rafcoder-apk-debug`)
@@ -12,7 +13,7 @@
 - Release signed APK: `android/artifacts/signed-release/` (artifact `rafcoder-apk-release-signed`, requires signing secrets)
 
 ## Local build
-Pré-requisito: Gradle disponível no PATH local.
+Pré-requisito: Java/JDK compatível (Gradle é resolvido via wrapper do projeto).
 
 ```bash
 ./scripts/android_build_matrix.sh
