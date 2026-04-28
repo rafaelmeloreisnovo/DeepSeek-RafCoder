@@ -7,6 +7,22 @@ android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
 
+    val keystorePathEnv = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+    val keystorePasswordEnv = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+    val keyAliasEnv = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+    val keyPasswordEnv = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+    val hasCompleteSigningEnv = !keystorePathEnv.isNullOrBlank() &&
+        !keystorePasswordEnv.isNullOrBlank() &&
+        !keyAliasEnv.isNullOrBlank() &&
+        !keyPasswordEnv.isNullOrBlank()
+
+    if (!keystorePathEnv.isNullOrBlank() && !hasCompleteSigningEnv) {
+        throw GradleException(
+            "ANDROID_KEYSTORE_PATH is set, but release signing env is incomplete. " +
+                "Expected ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+        )
+    }
+
     defaultConfig {
         applicationId = "com.rafcoder.app"
         minSdk = 24
@@ -27,15 +43,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val storeFilePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-            val storePass = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-            val keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-            val keyPass = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
-            if (!storeFilePath.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPass.isNullOrBlank()) {
-                storeFile = file(storeFilePath)
-                storePassword = storePass
-                this.keyAlias = keyAlias
-                keyPassword = keyPass
+            if (hasCompleteSigningEnv) {
+                storeFile = file(keystorePathEnv!!)
+                storePassword = keystorePasswordEnv
+                this.keyAlias = keyAliasEnv
+                keyPassword = keyPasswordEnv
             }
         }
     }
@@ -50,7 +62,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (providers.environmentVariable("ANDROID_KEYSTORE_PATH").isPresent) {
+            if (hasCompleteSigningEnv) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
