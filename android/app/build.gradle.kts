@@ -3,6 +3,23 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val androidKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+val androidKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val androidKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val androidKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+
+val hasCompleteSigningEnv = !androidKeystorePath.isNullOrBlank() &&
+    !androidKeystorePassword.isNullOrBlank() &&
+    !androidKeyAlias.isNullOrBlank() &&
+    !androidKeyPassword.isNullOrBlank()
+
+if (!androidKeystorePath.isNullOrBlank() && !hasCompleteSigningEnv) {
+    throw GradleException(
+        "ANDROID_KEYSTORE_PATH is set, but release signing env is incomplete. " +
+            "Expected ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+    )
+}
+
 android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
@@ -36,10 +53,10 @@ android {
     signingConfigs {
         create("release") {
             if (hasCompleteSigningEnv) {
-                storeFile = file(releaseKeystorePath!!)
-                storePassword = releaseKeystorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
+                storeFile = file(androidKeystorePath!!)
+                storePassword = androidKeystorePassword
+                keyAlias = androidKeyAlias
+                keyPassword = androidKeyPassword
             }
         }
     }
