@@ -47,6 +47,15 @@ jobs:
           mkdir -p android/artifacts/unsigned-release
           cp -v android/app/build/outputs/apk/release/*.apk android/artifacts/unsigned-release/
 
+      - name: Build unsigned release
+        run: |
+          gradle -p android --no-daemon :app:assembleRelease
+
+      - name: Collect unsigned release APKs
+        run: |
+          mkdir -p android/artifacts/unsigned-release
+          cp android/app/build/outputs/apk/release/*.apk android/artifacts/unsigned-release/
+
       - name: Decode keystore
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         run: |
