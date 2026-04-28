@@ -23,6 +23,14 @@ if (!androidKeystorePath.isNullOrBlank() && !hasCompleteSigningEnv) {
 android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
+    val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+    val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+    val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+    val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+    val hasCompleteSigningEnv = !releaseKeystorePath.isNullOrBlank() &&
+        !releaseKeystorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
 
     defaultConfig {
         applicationId = "com.rafcoder.app"
@@ -65,6 +73,13 @@ android {
             )
             if (hasCompleteSigningEnv) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "Release signing disabled: missing required env vars " +
+                        "(ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). " +
+                        "Building explicit unsigned release artifact."
+                )
+                signingConfig = null
             }
         }
     }
