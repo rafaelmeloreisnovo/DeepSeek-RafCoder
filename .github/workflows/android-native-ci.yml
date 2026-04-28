@@ -38,6 +38,15 @@ jobs:
           mkdir -p android/artifacts/unsigned
           cp -v android/app/build/outputs/apk/debug/*.apk android/artifacts/unsigned/
 
+      - name: Build unsigned release
+        run: |
+          gradle -p android --no-daemon :app:assembleRelease
+
+      - name: Collect unsigned release APKs
+        run: |
+          mkdir -p android/artifacts/unsigned-release
+          cp android/app/build/outputs/apk/release/*.apk android/artifacts/unsigned-release/
+
       - name: Decode keystore
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         run: |
@@ -62,7 +71,7 @@ jobs:
       - name: Upload unsigned APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks-unsigned
+          name: rafcoder-apk-debug
           path: |
             android/artifacts/unsigned/*.apk
 
@@ -70,6 +79,6 @@ jobs:
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks-signed
+          name: rafcoder-apk-release-signed
           path: |
             android/artifacts/signed/*.apk
