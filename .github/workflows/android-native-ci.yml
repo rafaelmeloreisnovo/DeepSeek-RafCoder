@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JAVA_VERSION: '17'
+      HAS_SIGNING_SECRETS: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +31,12 @@ jobs:
 
       - name: Build unsigned debug
         run: |
-          gradle -p android --no-daemon clean :app:assembleDebug
+          gradle -p android --no-daemon :app:assembleDebug
+
+      - name: Stage unsigned APK artifacts
+        run: |
+          mkdir -p android/artifacts/unsigned
+          cp -v android/app/build/outputs/apk/debug/*.apk android/artifacts/unsigned/
 
       - name: Build unsigned release
         run: |
@@ -42,12 +48,12 @@ jobs:
           cp android/app/build/outputs/apk/release/*.apk android/artifacts/unsigned-release/
 
       - name: Decode keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/android/release.keystore
 
       - name: Build signed release
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -56,35 +62,23 @@ jobs:
         run: |
           gradle -p android --no-daemon :app:clean :app:assembleRelease
 
-      - name: Verify signed release APK signatures
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+      - name: Stage signed APK artifacts
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         run: |
-          "$ANDROID_HOME/build-tools"/*/apksigner verify --print-certs android/app/build/outputs/apk/release/*.apk
+          mkdir -p android/artifacts/signed
+          cp -v android/app/build/outputs/apk/release/*.apk android/artifacts/signed/
 
-      - name: Collect signed release APKs
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
-        run: |
-          mkdir -p android/artifacts/signed-release
-          cp android/app/build/outputs/apk/release/*.apk android/artifacts/signed-release/
-
-      - name: Upload debug APK artifacts
+      - name: Upload unsigned APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rafcoder-apk-debug
           path: |
-            android/app/build/outputs/apk/debug/*.apk
+            android/artifacts/unsigned/*.apk
 
-      - name: Upload unsigned release APK artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rafcoder-apk-release-unsigned
-          path: |
-            android/artifacts/unsigned-release/*.apk
-
-      - name: Upload signed release APK artifacts
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+      - name: Upload signed APK artifacts
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: rafcoder-apk-release-signed
           path: |
-            android/artifacts/signed-release/*.apk
+            android/artifacts/signed/*.apk
