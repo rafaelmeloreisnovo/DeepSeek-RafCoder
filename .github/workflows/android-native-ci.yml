@@ -38,7 +38,7 @@ jobs:
         run: |
           ./android/gradlew -p android --no-daemon clean :app:assembleDebug :app:assembleRelease
 
-      - name: Stage unsigned APK artifacts
+      - name: Build unsigned release
         run: |
           mkdir -p android/artifacts/unsigned
           cp -v android/app/build/outputs/apk/debug/*.apk android/artifacts/unsigned/
@@ -67,17 +67,17 @@ jobs:
           cp -v android/app/build/outputs/apk/release/*release*.apk android/artifacts/signed/
           ls -lah android/artifacts/signed
 
-      - name: Upload unsigned APK artifacts
+      - name: Upload unsigned release APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks-unsigned
+          name: rafcoder-apk-release-unsigned
           path: |
-            android/artifacts/unsigned/*.apk
+            android/artifacts/unsigned-release/*.apk
 
-      - name: Upload signed APK artifacts
+      - name: Upload signed release APK artifacts
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks-signed
+          name: rafcoder-apk-release-signed
           path: |
-            android/artifacts/signed/*.apk
+            android/artifacts/signed-release/*.apk
