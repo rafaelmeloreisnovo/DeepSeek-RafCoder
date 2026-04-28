@@ -28,29 +28,36 @@ jobs:
         with:
           gradle-version: 8.14.3
 
-      - name: Build unsigned debug and release
+      - name: Build unsigned debug
         run: |
-          gradle -p android --no-daemon clean :app:assembleDebug :app:assembleRelease
+          gradle -p android --no-daemon clean :app:assembleDebug
 
       - name: Decode keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/android/release.keystore
 
       - name: Build signed release
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          gradle -p android --no-daemon :app:assembleRelease
+          gradle -p android --no-daemon :app:clean :app:assembleRelease
 
-      - name: Upload APK artifacts
+      - name: Upload unsigned APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks
+          name: rafcoder-android-apks-unsigned
           path: |
             android/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload signed APK artifacts
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rafcoder-android-apks-signed
+          path: |
             android/app/build/outputs/apk/release/*.apk
