@@ -6,9 +6,15 @@
 - ABI matrix oficial (Gradle `ndk.abiFilters` + CMake): `armeabi-v7a`, `arm64-v8a`
 - `x86_64` não é empacotado na trilha oficial (release/CI)
 - CI workflow: `.github/workflows/android-native-ci.yml`
+- Official build tool entrypoint: `android/gradlew` (`android/gradlew.bat` on Windows)
+
+## Artifact map (CI)
+- Debug unsigned APK: `android/artifacts/debug/` (artifact `rafcoder-apk-debug`)
+- Release unsigned APK: `android/artifacts/unsigned-release/` (artifact `rafcoder-apk-release-unsigned`)
+- Release signed APK: `android/artifacts/signed-release/` (artifact `rafcoder-apk-release-signed`, requires signing secrets)
 
 ## Local build
-Pré-requisito: Gradle disponível no PATH local.
+Pré-requisito: Java/JDK compatível (Gradle é resolvido via wrapper do projeto).
 
 ```bash
 ./scripts/android_build_matrix.sh
@@ -31,4 +37,4 @@ export ANDROID_KEY_PASSWORD='***'
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-Without these secrets CI still produces unsigned debug/release APKs.
+Without these secrets CI still produces debug and unsigned release APKs.

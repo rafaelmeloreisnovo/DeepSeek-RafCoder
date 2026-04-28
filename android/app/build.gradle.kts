@@ -13,24 +13,9 @@ val hasCompleteSigningEnv = !androidKeystorePath.isNullOrBlank() &&
     !androidKeyAlias.isNullOrBlank() &&
     !androidKeyPassword.isNullOrBlank()
 
-if (!androidKeystorePath.isNullOrBlank() && !hasCompleteSigningEnv) {
-    throw GradleException(
-        "ANDROID_KEYSTORE_PATH is set, but release signing env is incomplete. " +
-            "Expected ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
-    )
-}
-
 android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
-    val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-    val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-    val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-    val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
-    val hasCompleteSigningEnv = !releaseKeystorePath.isNullOrBlank() &&
-        !releaseKeystorePassword.isNullOrBlank() &&
-        !releaseKeyAlias.isNullOrBlank() &&
-        !releaseKeyPassword.isNullOrBlank()
 
     defaultConfig {
         applicationId = "com.rafcoder.app"
@@ -40,7 +25,7 @@ android {
         versionName = "1.0.0"
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
 
         externalNativeBuild {
@@ -71,6 +56,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
             if (hasCompleteSigningEnv) {
                 signingConfig = signingConfigs.getByName("release")
             } else {
