@@ -6,6 +6,11 @@
 - ABI targets: `armeabi-v7a`, `arm64-v8a`, `x86_64`
 - CI workflow: `.github/workflows/android-native-ci.yml`
 
+## Artifact map (CI)
+- Debug unsigned APK: `android/artifacts/debug/` (artifact `rafcoder-apk-debug`)
+- Release unsigned APK: `android/artifacts/unsigned-release/` (artifact `rafcoder-apk-release-unsigned`)
+- Release signed APK: `android/artifacts/signed-release/` (artifact `rafcoder-apk-release-signed`, requires signing secrets)
+
 ## Local build
 Pré-requisito: Gradle disponível no PATH local.
 
@@ -30,10 +35,4 @@ export ANDROID_KEY_PASSWORD='***'
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-Without these secrets CI still produces unsigned debug/release APKs.
-
-
-## ABI/CMake alignment
-- `ndk.abiFilters` in `android/app/build.gradle.kts` is the single source of truth for packaged ABIs: `armeabi-v7a`, `arm64-v8a`.
-- `android/app/src/main/cpp/CMakeLists.txt` includes architecture-specific assembly only for `arm64-v8a`; `armeabi-v7a` uses the portable C fallback (`core/arch/primitives.c`).
-- `x86_64` is intentionally not part of the official matrix and is not included in Gradle packaging or native source selection.
+Without these secrets CI still produces debug and unsigned release APKs.
