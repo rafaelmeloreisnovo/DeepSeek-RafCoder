@@ -30,4 +30,16 @@ export ANDROID_KEY_PASSWORD='***'
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-Without these secrets CI still produces unsigned debug/release APKs.
+## Artifact map (CI)
+- Debug APKs:
+  - Build output: `android/app/build/outputs/apk/debug/*.apk`
+  - Artifact name: `rafcoder-apk-debug`
+- Unsigned release APKs:
+  - Copied to: `android/artifacts/unsigned-release/*.apk`
+  - Artifact name: `rafcoder-apk-release-unsigned`
+- Signed release APKs (when signing secrets are configured):
+  - Copied to: `android/artifacts/signed-release/*.apk`
+  - Validation before upload: `apksigner verify --print-certs`
+  - Artifact name: `rafcoder-apk-release-signed`
+
+Without signing secrets CI still produces debug and unsigned release APKs.
