@@ -3,6 +3,23 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val androidKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+val androidKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val androidKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val androidKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+
+val hasCompleteSigningEnv = !androidKeystorePath.isNullOrBlank() &&
+    !androidKeystorePassword.isNullOrBlank() &&
+    !androidKeyAlias.isNullOrBlank() &&
+    !androidKeyPassword.isNullOrBlank()
+
+if (!androidKeystorePath.isNullOrBlank() && !hasCompleteSigningEnv) {
+    throw GradleException(
+        "ANDROID_KEYSTORE_PATH is set, but release signing env is incomplete. " +
+            "Expected ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+    )
+}
+
 android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
@@ -27,15 +44,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val storeFilePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-            val storePass = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-            val keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-            val keyPass = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
-            if (!storeFilePath.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPass.isNullOrBlank()) {
-                storeFile = file(storeFilePath)
-                storePassword = storePass
-                this.keyAlias = keyAlias
-                keyPassword = keyPass
+            if (hasCompleteSigningEnv) {
+                storeFile = file(androidKeystorePath!!)
+                storePassword = androidKeystorePassword
+                keyAlias = androidKeyAlias
+                keyPassword = androidKeyPassword
             }
         }
     }
@@ -50,7 +63,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (providers.environmentVariable("ANDROID_KEYSTORE_PATH").isPresent) {
+            if (hasCompleteSigningEnv) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
