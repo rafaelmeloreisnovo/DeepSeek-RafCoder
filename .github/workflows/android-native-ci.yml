@@ -24,14 +24,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.14.3
+      - name: Bootstrap Gradle Wrapper JAR
+        run: |
+          ./scripts/bootstrap_gradle_wrapper.sh
 
       - name: Build unsigned debug
         run: |
-          gradle -p android --no-daemon :app:assembleDebug
+          ./android/gradlew --no-daemon -p android :app:assembleDebug
 
       - name: Stage unsigned APK artifacts
         run: |
@@ -51,7 +50,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          gradle -p android --no-daemon :app:clean :app:assembleRelease
+          ./android/gradlew --no-daemon -p android :app:clean :app:assembleRelease
 
       - name: Stage signed APK artifacts
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
