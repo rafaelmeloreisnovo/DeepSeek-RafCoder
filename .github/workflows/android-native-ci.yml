@@ -35,7 +35,9 @@ jobs:
         run: |
           mkdir -p android/artifacts/debug android/artifacts/unsigned-release
           cp -v android/app/build/outputs/apk/debug/*.apk android/artifacts/debug/
-          cp -v android/app/build/outputs/apk/release/*unsigned*.apk android/artifacts/unsigned-release/
+          cp -v android/app/build/outputs/apk/release/*-unsigned.apk android/artifacts/unsigned-release/
+          test -n "$(ls -1 android/artifacts/debug/*.apk 2>/dev/null)"
+          test -n "$(ls -1 android/artifacts/unsigned-release/*-unsigned.apk 2>/dev/null)"
           ls -lah android/artifacts/debug
           ls -lah android/artifacts/unsigned-release
 
@@ -58,7 +60,9 @@ jobs:
         if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         run: |
           mkdir -p android/artifacts/signed-release
-          cp -v android/app/build/outputs/apk/release/*release*.apk android/artifacts/signed-release/
+          cp -v android/app/build/outputs/apk/release/*release.apk android/artifacts/signed-release/
+          test -n "$(ls -1 android/artifacts/signed-release/*release.apk 2>/dev/null)"
+          test -z "$(ls -1 android/artifacts/signed-release/*-unsigned.apk 2>/dev/null)"
           ls -lah android/artifacts/signed-release
 
       - name: Upload debug APK artifacts
