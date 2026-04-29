@@ -47,3 +47,32 @@ Without these secrets CI still produces debug and unsigned release APKs.
   - `core/sector.c`
   - `core/arch/primitives.c`
 - Error contract: the fatal error message explicitly instructs to set `-DRAFCODER_ROOT=/absolute/path/to/RafCoder repo root`.
+
+## Benchmark harness (`run_sector`) with machine-readable output
+
+Harness location: `core/benchmark_run_sector.c` (observa execução, sem alterar semântica de `run_sector`).
+
+Parâmetros metodológicos fixos no código:
+- warmup runs: `8`
+- sample runs: `32`
+
+### Ambiente de medição (registrar junto ao resultado)
+Antes de coletar benchmark, capture o ambiente:
+
+```bash
+uname -a
+lscpu
+cc --version
+```
+
+### Comandos exatos
+
+```bash
+make -C core benchmark_run_sector
+./core/benchmark_run_sector --iterations 1000 --format csv > benchmark_run_sector.csv
+./core/benchmark_run_sector --iterations 1000 --format json > benchmark_run_sector.json
+```
+
+### Limite metodológico
+Resultados valem apenas para o hardware/SO/toolchain efetivamente medidos.
+Não inferir ganho/perda para dispositivos não medidos.

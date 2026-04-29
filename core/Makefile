@@ -32,12 +32,10 @@ test_reentrancy: test_sector_reentrancy.c $(SRC)
 test_snapshot: test_sector_snapshot.c $(SRC)
 	$(CC) -O2 -Wall -Wextra -Werror -std=c11 -I. test_sector_snapshot.c $(SRC) -o $@
 
+benchmark_run_sector: benchmark_run_sector.c $(SRC)
+	$(CC) -O2 -Wall -Wextra -Werror -std=c11 -I. benchmark_run_sector.c $(SRC) -o $@
+
 clean:
-	rm -f $(OBJ) libsector_core.a test_reentrancy test_snapshot
+	rm -f $(OBJ) libsector_core.a test_reentrancy test_snapshot benchmark_run_sector
 
-
-test: test_reentrancy test_snapshot
-	./test_reentrancy
-	./test_snapshot
-
-.PHONY: all clean test test_reentrancy test_snapshot
+.PHONY: all clean test_reentrancy test_snapshot benchmark_run_sector

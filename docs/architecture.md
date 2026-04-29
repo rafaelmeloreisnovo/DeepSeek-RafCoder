@@ -87,6 +87,8 @@ The report function executes `run_sector()` and formats the native state for UI 
 
 This is currently an observability bridge, not yet a performance benchmark harness.
 
+A dedicated benchmark harness now exists in `core/benchmark_run_sector.c` with fixed warmup/sample counts and CSV/JSON output, strictly for timing observation of `run_sector()` under controlled iteration load.
+
 ---
 
 ## 5. Architecture primitive selection
