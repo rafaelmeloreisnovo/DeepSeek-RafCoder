@@ -9,9 +9,15 @@
 - Official build tool entrypoint: `android/gradlew` (`android/gradlew.bat` on Windows)
 
 ## Artifact map (CI)
-- Debug unsigned APK: `android/artifacts/debug/` (artifact `rafcoder-apk-debug`)
-- Release unsigned APK: `android/artifacts/unsigned-release/` (artifact `rafcoder-apk-release-unsigned`)
-- Release signed APK: `android/artifacts/signed-release/` (artifact `rafcoder-apk-release-signed`, requires signing secrets)
+- Debug unsigned APK (`android/artifacts/debug/`):
+  - `rafcoder-apk-debug-armeabi-v7a`
+  - `rafcoder-apk-debug-arm64-v8a`
+- Release unsigned APK (`android/artifacts/unsigned-release/`):
+  - `rafcoder-apk-release-unsigned-armeabi-v7a`
+  - `rafcoder-apk-release-unsigned-arm64-v8a`
+- Release signed APK (`android/artifacts/signed-release/`, requires signing secrets):
+  - `rafcoder-apk-release-signed-armeabi-v7a`
+  - `rafcoder-apk-release-signed-arm64-v8a`
 
 ## Local build
 Pré-requisito: usar o Gradle Wrapper oficial em `android/gradlew` e inicializar o bootstrap do wrapper jar.
