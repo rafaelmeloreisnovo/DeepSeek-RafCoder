@@ -6,26 +6,19 @@
 - ABI matrix oficial (Gradle `ndk.abiFilters` + CMake): `armeabi-v7a`, `arm64-v8a`
 - `x86_64` não é empacotado na trilha oficial (release/CI)
 - CI workflow: `.github/workflows/android-native-ci.yml`
-- Official build tool entrypoint: `android/gradlew` (`android/gradlew.bat` on Windows)
-
-## Artifact map (CI)
-- Debug unsigned APK (`android/artifacts/debug/`):
-  - `rafcoder-apk-debug-armeabi-v7a`
-  - `rafcoder-apk-debug-arm64-v8a`
-- Release unsigned APK (`android/artifacts/unsigned-release/`):
-  - `rafcoder-apk-release-unsigned-armeabi-v7a`
-  - `rafcoder-apk-release-unsigned-arm64-v8a`
-- Release signed APK (`android/artifacts/signed-release/`, requires signing secrets):
-  - `rafcoder-apk-release-signed-armeabi-v7a`
-  - `rafcoder-apk-release-signed-arm64-v8a`
+- Gradle execution path (official): `android/gradlew`
+- Gradle wrapper version: `8.14.3`
+- Wrapper JAR bootstrap: `scripts/ensure_gradle_wrapper_jar.sh` (não versiona binário no repositório)
 
 ## Local build
-Pré-requisito: usar o Gradle Wrapper oficial em `android/gradlew` e inicializar o bootstrap do wrapper jar.
+Pré-requisito: Java (JDK 17+) disponível no PATH local.
 
 ```bash
 ./scripts/bootstrap_gradle_wrapper.sh
 ./scripts/android_build_matrix.sh
 ```
+
+Esse script chama `scripts/ensure_gradle_wrapper_jar.sh` e depois `android/gradlew` automaticamente.
 
 ## Signed release (local)
 Set variables before running build:
@@ -37,6 +30,8 @@ export ANDROID_KEY_ALIAS='***'
 export ANDROID_KEY_PASSWORD='***'
 ./scripts/android_build_matrix.sh
 ```
+
+Esse script chama `scripts/ensure_gradle_wrapper_jar.sh` e depois `android/gradlew` automaticamente.
 
 ## GitHub Actions secrets for signed release
 - `ANDROID_KEYSTORE_BASE64`
