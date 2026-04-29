@@ -29,7 +29,10 @@ libsector_core.a: $(OBJ)
 test_reentrancy: test_sector_reentrancy.c $(SRC)
 	$(CC) -O2 -Wall -Wextra -Werror -std=c11 -I. test_sector_reentrancy.c $(SRC) -pthread -o $@
 
-clean:
-	rm -f $(OBJ) libsector_core.a test_reentrancy
+test_snapshot: test_sector_snapshot.c $(SRC)
+	$(CC) -O2 -Wall -Wextra -Werror -std=c11 -I. test_sector_snapshot.c $(SRC) -o $@
 
-.PHONY: all clean test_reentrancy
+clean:
+	rm -f $(OBJ) libsector_core.a test_reentrancy test_snapshot
+
+.PHONY: all clean test_reentrancy test_snapshot
