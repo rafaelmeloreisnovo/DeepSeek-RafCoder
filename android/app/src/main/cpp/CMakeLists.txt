@@ -1,12 +1,30 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(rafcoder_native)
 
-set(RAFCODER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../..")
+set(RAFCODER_ROOT "" CACHE PATH "Absolute path to RafCoder repository root. Can be overridden with -DRAFCODER_ROOT=/path/to/repo")
+if(NOT RAFCODER_ROOT)
+    get_filename_component(RAFCODER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../.." ABSOLUTE)
+endif()
+
+set(RAFCODER_SECTOR_C "${RAFCODER_ROOT}/core/sector.c")
+set(RAFCODER_PRIMITIVES_C "${RAFCODER_ROOT}/core/arch/primitives.c")
+
+if(NOT EXISTS "${RAFCODER_SECTOR_C}")
+    message(FATAL_ERROR
+        "RAFCODER_ROOT is invalid: '${RAFCODER_ROOT}'. Missing required file: '${RAFCODER_SECTOR_C}'. "
+        "Set -DRAFCODER_ROOT=/absolute/path/to/RafCoder repo root.")
+endif()
+
+if(NOT EXISTS "${RAFCODER_PRIMITIVES_C}")
+    message(FATAL_ERROR
+        "RAFCODER_ROOT is invalid: '${RAFCODER_ROOT}'. Missing required file: '${RAFCODER_PRIMITIVES_C}'. "
+        "Set -DRAFCODER_ROOT=/absolute/path/to/RafCoder repo root.")
+endif()
 
 set(RAFCODER_NATIVE_SOURCES
     native-lib.cpp
-    "${RAFCODER_ROOT}/core/sector.c"
-    "${RAFCODER_ROOT}/core/arch/primitives.c"
+    "${RAFCODER_SECTOR_C}"
+    "${RAFCODER_PRIMITIVES_C}"
 )
 
 if(ANDROID_ABI STREQUAL "arm64-v8a")
