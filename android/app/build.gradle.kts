@@ -16,6 +16,8 @@ val hasValidKeystoreFile = !androidKeystorePath.isNullOrBlank() && file(androidK
 val requestedTasks = gradle.startParameter.taskNames.map { it.lowercase() }
 val isExplicitUnsignedReleaseRequested = requestedTasks.any { it.contains("unsigned") }
 
+val hasValidKeystoreFile = !androidKeystorePath.isNullOrBlank() && file(androidKeystorePath).exists()
+
 android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
