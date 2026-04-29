@@ -3,6 +3,19 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val androidKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+val androidKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val androidKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val androidKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+
+val hasSigningEnv = !androidKeystorePath.isNullOrBlank() &&
+    !androidKeystorePassword.isNullOrBlank() &&
+    !androidKeyAlias.isNullOrBlank() &&
+    !androidKeyPassword.isNullOrBlank()
+val hasValidKeystoreFile = !androidKeystorePath.isNullOrBlank() && file(androidKeystorePath).exists()
+val requestedTasks = gradle.startParameter.taskNames.map { it.lowercase() }
+val isExplicitUnsignedReleaseRequested = requestedTasks.any { it.contains("unsigned") }
+
 android {
     namespace = "com.rafcoder.app"
     compileSdk = 35
@@ -27,15 +40,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val storeFilePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-            val storePass = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-            val keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-            val keyPass = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
-            if (!storeFilePath.isNullOrBlank() && !storePass.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPass.isNullOrBlank()) {
-                storeFile = file(storeFilePath)
-                storePassword = storePass
-                this.keyAlias = keyAlias
-                keyPassword = keyPass
+            if (hasSigningEnv && hasValidKeystoreFile) {
+                storeFile = file(androidKeystorePath!!)
+                storePassword = androidKeystorePassword
+                keyAlias = androidKeyAlias
+                keyPassword = androidKeyPassword
             }
         }
     }
@@ -50,8 +59,26 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (providers.environmentVariable("ANDROID_KEYSTORE_PATH").isPresent) {
+
+            if (hasSigningEnv && hasValidKeystoreFile) {
                 signingConfig = signingConfigs.getByName("release")
+            } else if (hasSigningEnv && !hasValidKeystoreFile) {
+                val message =
+                    "Release signing requested via env, but keystore file was not found at ANDROID_KEYSTORE_PATH: " +
+                        androidKeystorePath
+                if (isExplicitUnsignedReleaseRequested) {
+                    logger.warn("$message. Building explicit unsigned release artifact as requested.")
+                    signingConfig = null
+                } else {
+                    throw GradleException("$message. Refusing to fallback to unsigned release.")
+                }
+            } else {
+                logger.warn(
+                    "Release signing disabled: missing required env vars " +
+                        "(ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). " +
+                        "Building explicit unsigned release artifact."
+                )
+                signingConfig = null
             }
         }
     }

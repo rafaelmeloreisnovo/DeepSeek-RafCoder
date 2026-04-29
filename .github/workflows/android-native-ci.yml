@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JAVA_VERSION: '17'
+      REQUIRED_ABIS: 'armeabi-v7a arm64-v8a'
+      GRADLE_VERSION: '8.14.3'
+      HAS_SIGNING_SECRETS: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,36 +31,98 @@ jobs:
           chmod +x ./scripts/ensure_gradle_wrapper_jar.sh
           ./scripts/ensure_gradle_wrapper_jar.sh
 
-      - name: Build unsigned debug
+      - name: Assert wrapper/CI Gradle version alignment
         run: |
           ./android/gradlew --project-dir android --no-daemon clean :app:assembleDebug
 
-      - name: Decode keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+      - name: Build debug and unsigned release
+        run: ./android/gradlew --no-daemon -p android :app:clean :app:assembleDebug :app:assembleRelease
+
+      - name: Validate native libs per ABI (debug/release)
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/android/release.keystore
+          set -euo pipefail
+          DEBUG_LIB_ROOT="android/app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
+          RELEASE_LIB_ROOT="android/app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib"
+
+          validate_variant() {
+            local variant="$1"
+            local root="$2"
+
+            for abi in ${REQUIRED_ABIS}; do
+              local abi_dir="${root}/${abi}"
+              echo "Checking ${variant} ABI: ${abi}"
+              test -d "$abi_dir"
+              find "$abi_dir" -maxdepth 1 -type f -name '*.so' -print | sort
+              test -n "$(find "$abi_dir" -maxdepth 1 -type f -name '*.so' -print -quit)"
+            done
+          }
+
+          validate_variant debug "$DEBUG_LIB_ROOT"
+          validate_variant release "$RELEASE_LIB_ROOT"
+
+      - name: Stage unsigned APK artifacts by ABI
+        run: |
+          set -euo pipefail
+          mkdir -p android/artifacts/debug android/artifacts/unsigned-release
+
+          resolve_apk() {
+            local abi="$1"
+            local variant_dir="$2"
+            local output_name="$3"
+
+            local split_apk="android/app/build/outputs/apk/${variant_dir}/app-${abi}-${output_name}.apk"
+            local universal_apk="android/app/build/outputs/apk/${variant_dir}/app-${output_name}.apk"
+
+            if [ -f "$split_apk" ]; then
+              echo "$split_apk"
+              return 0
+            fi
+
+            if [ -f "$universal_apk" ]; then
+              echo "$universal_apk"
+              return 0
+            fi
+
+            echo "Missing APK for ABI ${abi} (${variant_dir}/${output_name})" >&2
+            return 1
+          }
+
+          for abi in ${REQUIRED_ABIS}; do
+            debug_apk="$(resolve_apk "$abi" debug debug)"
+            unsigned_release_apk="$(resolve_apk "$abi" release release-unsigned)"
+
+            cp -v "$debug_apk" "android/artifacts/debug/rafcoder-${abi}-debug.apk"
+            cp -v "$unsigned_release_apk" "android/artifacts/unsigned-release/rafcoder-${abi}-release-unsigned.apk"
+          done
+
+      - name: Decode keystore
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/android/release.keystore
 
       - name: Build signed release
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./android/gradlew --no-daemon -p android :app:clean :app:assembleRelease
+
+      - name: Stage signed APK artifacts by ABI
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         run: |
           ./android/gradlew --project-dir android --no-daemon :app:clean :app:assembleRelease
 
-      - name: Upload unsigned APK artifacts
+      - name: Upload signed release APK artifacts (armeabi-v7a)
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks-unsigned
-          path: |
-            android/app/build/outputs/apk/debug/*.apk
+          name: rafcoder-apk-release-signed-armeabi-v7a
+          path: android/artifacts/signed-release/rafcoder-armeabi-v7a-release-signed.apk
 
-      - name: Upload signed APK artifacts
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+      - name: Upload signed release APK artifacts (arm64-v8a)
+        if: ${{ env.HAS_SIGNING_SECRETS == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: rafcoder-android-apks-signed
-          path: |
-            android/app/build/outputs/apk/release/*.apk
+          name: rafcoder-apk-release-signed-arm64-v8a
+          path: android/artifacts/signed-release/rafcoder-arm64-v8a-release-signed.apk
