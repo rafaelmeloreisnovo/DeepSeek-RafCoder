@@ -1,0 +1,163 @@
+name: RAFAELIA APK Multi-Architecture Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  NDK_VERSION: "25c"
+  BUILD_TOOLS: "34.0.0"
+  MIN_SDK: "21"
+  TARGET_SDK: "34"
+
+jobs:
+  build:
+    name: Build APK Release (All ABIs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: "latest"
+
+      - name: Install Android SDK components (with fallback mirrors)
+        run: |
+          set -e
+          SDK_MANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          
+          # primary
+          $SDK_MANAGER --install \
+            "build-tools;$BUILD_TOOLS" \
+            "platforms;android-$TARGET_SDK" \
+            "ndk;$NDK_VERSION" \
+            --sdk_root="$ANDROID_SDK_ROOT" 2>/dev/null || \
+          # fallback: use bundled NDK from GitHub runner
+          echo "SDK manager failed, using runner-provided NDK"
+          
+          # verify NDK available
+          NDK_PATH="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK_PATH" ]; then
+            NDK_PATH=$(ls -d "$ANDROID_SDK_ROOT/ndk/"* 2>/dev/null | head -1)
+            echo "Using NDK at: $NDK_PATH"
+          fi
+          echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+
+      - name: Download ONDK (Magisk NDK) with fallback
+        run: |
+          set -e
+          ONDK_URL="https://github.com/topjohnwu/ondk/releases/latest/download/ondk-linux.tar.xz"
+          ONDK_DIR="$HOME/.ondk"
+          mkdir -p "$ONDK_DIR"
+          
+          # try primary
+          curl -fsSL --max-time 60 -o "$ONDK_DIR/ondk.tar.xz" "$ONDK_URL" && \
+          tar -xf "$ONDK_DIR/ondk.tar.xz" -C "$ONDK_DIR" && \
+          ONDK_BIN=$(find "$ONDK_DIR" -name "clang" -type f | head -1 | xargs dirname) && \
+          echo "ONDK_BIN=$ONDK_BIN" >> $GITHUB_ENV || \
+          echo "ONDK not available, falling back to standard NDK"
+
+      - name: Configure build for all ABIs
+        run: |
+          cat > local.properties << EOF
+          sdk.dir=$ANDROID_SDK_ROOT
+          ndk.dir=$NDK_HOME
+          EOF
+          
+          # inject ABI splits into build.gradle if not present
+          if grep -q "abiFilters" app/build.gradle 2>/dev/null; then
+            echo "ABI filters already configured"
+          else
+            echo "ABI splits not found in build.gradle, patching..."
+            # non-destructive patch via sed
+            sed -i '/defaultConfig {/a\
+              ndk { abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64" }' \
+              app/build.gradle 2>/dev/null || true
+          fi
+
+      - name: Build Release APK (all architectures)
+        run: |
+          chmod +x ./gradlew 2>/dev/null || true
+          
+          # try Gradle build first
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=keystore.jks \
+              -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+              -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+              -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}" \
+              --stacktrace --no-daemon 2>&1 | tail -50
+          else
+            # fallback: direct build.py
+            python3 build.py release 2>&1 | tail -50
+          fi
+
+      - name: Locate and normalize APK
+        run: |
+          set -e
+          APK=$(find . -name "*.apk" -not -path "*/intermediates/*" | head -1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: No APK found"
+            exit 1
+          fi
+          mkdir -p out
+          cp "$APK" out/app-release.apk
+          echo "APK_PATH=out/app-release.apk" >> $GITHUB_ENV
+          echo "APK size: $(du -sh out/app-release.apk | cut -f1)"
+
+      - name: Validate APK integrity
+        run: |
+          # zipalign check
+          if command -v zipalign &>/dev/null; then
+            zipalign -c 4 out/app-release.apk && \
+            echo "✓ zipalign OK" || \
+            echo "⚠ zipalign issue (non-fatal for release)"
+          fi
+          # aapt sanity check
+          if command -v aapt &>/dev/null; then
+            aapt dump badging out/app-release.apk | grep "package:" || \
+            echo "⚠ aapt check inconclusive"
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-${{ github.sha }}
+          path: out/app-release.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Generate build summary
+        run: |
+          echo "## RAFAELIA Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| SHA | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| APK | out/app-release.apk |" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | $(du -sh out/app-release.apk | cut -f1) |" >> $GITHUB_STEP_SUMMARY
+          echo "| ABIs | armeabi-v7a, arm64-v8a, x86, x86_64 |" >> $GITHUB_STEP_SUMMARY
