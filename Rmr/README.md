@@ -47,6 +47,10 @@ rafaelia_b4.S  →  SENOIDES + CAMADAS + SOBREPOSIÇÃO
   └── Sobreposição: XOR acumulado como hash de integridade
 ```
 
+## Especificação Unificada
+
+- Consulte `Rmr/RAFAELIA_UNIFIED_SPEC.md` para o mapa consolidado (álgebra + geometria + topologia + fluxo).
+
 ## Modelo Matemático
 
 ### Estado Toroidal
