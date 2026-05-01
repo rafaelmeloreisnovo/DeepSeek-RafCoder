@@ -110,3 +110,26 @@ echo ""
 echo "  Binários gerados:"
 ls -lh rafaelia_b1 rafaelia_b2 rafaelia_b3 rafaelia_b4 2>/dev/null
 echo "==================================================="
+
+# ---------------------------------------------------------------------------
+# B5: BITSTACK 1008 + COMMIT GATE + HYPERFORMS + PARIDADE + ROLLBACK
+# ---------------------------------------------------------------------------
+echo "--- B5: BITSTACK-1008 + COMMIT-GATE + HYPERFORMS ---"
+$AS $AS_FLAGS rafaelia_b5.S -o rafaelia_b5.o 2>&1 \
+    && pass "Assembled b5.o" \
+    || fail "Assembler error B5"
+
+$LD $LD_FLAGS rafaelia_b5.o -o rafaelia_b5 2>&1 \
+    && pass "Linked rafaelia_b5" \
+    || fail "Linker error B5"
+
+echo "  → Running:"
+./rafaelia_b5 && pass "B5 OK (exit 0)" || fail "B5 runtime error"
+echo ""
+
+echo "==================================================="
+echo "  $OK TODOS OS 5 BLOCOS COMPILADOS E EXECUTADOS"
+echo ""
+echo "  Binários gerados:"
+ls -lh rafaelia_b1 rafaelia_b2 rafaelia_b3 rafaelia_b4 rafaelia_b5 2>/dev/null
+echo "==================================================="
