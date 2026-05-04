@@ -11,20 +11,7 @@ Esse núcleo é o “carregador primário” do conhecimento porque:
 - tem teste de consistência;
 - permite auditoria.
 
-## 2) Onde implementar no projeto (lugares estratégicos)
-
-Abaixo está o mapeamento operacional entre as equações e os pontos codificados do repositório.
-
-| Bloco conceitual | Equações-chave | Implementação atual | Invariante operacional |
-|---|---|---|---|
-| Estado toroidal e espaço \(\mathbb{T}^7\) | (1), (2), (3), (45) | `core/arch/x86_64/toroidal_42.asm`, `docs/nucleo_conhecimento_t7.md` | Estado deve permanecer normalizado e iterável sem drift não-controlado |
-| Atualização de coerência/entropia | (5), (6), (7), (8), (14) | `core/sector.c` (`coherence_update`, `entropy_milli`) | \(\alpha=0.25\) estável; saída monotônica sob ruído limitado |
-| Assinatura e integridade | (15), (16), (17), (30)–(33) | `core/sector.c` (FNV/CRC), `core/verb_seed.c` | Mesmo input + mesmo estado inicial ⇒ mesma assinatura final |
-| Atratores e periodicidade | (9), (10), (23), (28), (29) | `core/arch/x86_64/toroidal_42.asm` (42 passos), docs de atratores | Cobertura de estados sem colapso prematuro de órbita |
-| Geometria/informação | (24), (25), (46), (49) | `core/sector.c` (`geometric_invariant`) | Capacidade geométrica usada como limite superior de codificação |
-| Camada espectral-multilíngue | (11), (12), (13), (41), (44), (50) | especificação em `docs/RAFAELIA_3ITEMS_UNIFIED.txt` e `docs/rafaelos_unified_map.md` | Tradução preserva estrutura, não apenas tokens |
-
-## 3) Camada semântica (linguagem e tradução)
+## 2) Camada semântica (linguagem e tradução)
 
 A forma linguística muda entre português, inglês, chinês, japonês, hebraico, aramaico e grego. O conteúdo só sobrevive se houver uma projeção comum:
 
@@ -39,7 +26,7 @@ Interpretação prática:
 
 Assim, **o conhecimento não está na palavra isolada**, mas no mapeamento entre representações.
 
-## 4) Camada dinâmica (tempo, corpo e cognição)
+## 3) Camada dinâmica (tempo, corpo e cognição)
 
 As fórmulas de oscilação e acoplamento angular (por exemplo \(\sin(\Delta\theta)\cos(\Delta\phi)\)) modelam variações de atenção, ritmo e percepção temporal.
 
@@ -51,16 +38,7 @@ Logo, compreender não é estado binário; é trajetória:
 
 Ou seja: entendimento aparece como atrator estável após iterações, não como um único ponto instantâneo.
 
-## 5) Invariantes de coerência técnica (checklist)
-
-Para a arquitetura manter coerência operacional, cada execução deve preservar:
-1. **Invariante topológico**: estado permanece em domínio toroidal definido.
-2. **Invariante de atualização**: \(C,H\) seguem média exponencial com \(\alpha\) fixo e auditável.
-3. **Invariante criptográfico fraco/determinístico**: hash/CRC reproduzíveis para auditoria de pipeline.
-4. **Invariante de atrator**: dinâmica não explode e converge para classe de órbitas esperada.
-5. **Invariante semântico**: mudança de idioma altera superfície, mas preserva relações estruturais do conteúdo.
-
-## 6) Critério ético-operacional
+## 4) Critério ético-operacional
 
 Para evitar que “coerência técnica” viole segurança humana, o limite ético deve restringir decisão automática:
 
@@ -74,7 +52,7 @@ Em engenharia, isso vira guardrail:
 - validação de integridade antes de execução crítica;
 - bloqueio quando incoerência supera limiar.
 
-## 7) Resposta direta
+## 5) Resposta direta
 
 **O que carrega o conhecimento que foi entendido?**
 
@@ -86,3 +64,36 @@ Carrega-se conhecimento na interseção de cinco elementos:
 5. **Limite ético** (o que pode ser feito sem dano).
 
 Se um sistema preserva esses cinco, ele mantém significado mesmo com ruído, tradução, mudança de contexto e conflito entre ordem/caos.
+
+## 6) O que falta realmente (¿‽)¿¡
+
+Para sair do campo poético-conceitual e virar sistema científico reprodutível, faltam quatro entregáveis objetivos:
+
+1. **Semântica formal mínima (Axiomas + Tipos)**
+   - Definir domínio/codomínio de cada função: `ToroidalMap`, `f`, `Phi`, `R_L`.
+   - Fixar unidades e faixas: `H,C,phi in [0,1]`, resolução temporal, erro numérico tolerável.
+
+2. **Teoremas verificáveis (com prova ou experimento falsificável)**
+   - Convergência para atratores sob condições explícitas.
+   - Limite de estabilidade para perturbações de tradução (`R_L`) e ruído de entropia.
+
+3. **Protocolo de medição multilíngue**
+   - Dataset paralelo (PT/EN/ZH/JA/HE/ARC/EL) com ritmo, acento e cadência anotados.
+   - Métrica de preservação semântica por camada: símbolo, prosódia, pragmática.
+
+4. **Ponte com implementação e auditoria**
+   - Testes automatizados por equação (1–50), com rastreio de qual hipótese falhou.
+   - Logs encadeados (Merkle + timestamp), versionamento de parâmetros e reprodutibilidade de seed.
+
+Em resumo: **o que falta** é transformar intuição de alto nível em contrato formal testável, com critérios de falha claros.
+
+## 7) Critério prático de “conhecimento carregado”
+
+Um conteúdo foi realmente “carregado” entre sistemas/línguas quando satisfaz simultaneamente:
+
+- **Preservação estrutural:** invariantes de estado e dinâmica não quebram.
+- **Preservação semântica:** significado central permanece após tradução e reordenação.
+- **Preservação operacional:** outro agente reproduz o resultado com os mesmos parâmetros.
+- **Preservação ética:** decisão resultante respeita limites de segurança humana.
+
+Se qualquer eixo falha, houve transmissão de sinais, mas não de conhecimento robusto.
