@@ -16,6 +16,8 @@ DESCRIPTION = """\
 # DeepSeek-6.7B-Chat
 
 This Space demonstrates model [DeepSeek-Coder](https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct) by DeepSeek, a code model with 6.7B parameters fine-tuned for chat instructions.
+
+Generation mode is deterministic by default (`do_sample=False`), so sampling sliders stay disabled until sampling is enabled.
 """
 
 if not torch.cuda.is_available():
@@ -36,6 +38,7 @@ def generate(
     chat_history: list,
     system_prompt: str,
     max_new_tokens: int = 1024,
+    do_sample: bool = False,
     temperature: float = 0.6,
     top_p: float = 0.9,
     top_k: int = 50,
@@ -59,11 +62,18 @@ def generate(
         {"input_ids": input_ids},
         streamer=streamer,
         max_new_tokens=max_new_tokens,
-        do_sample=False,
+        do_sample=do_sample,
         num_beams=1,
         repetition_penalty=repetition_penalty,
         eos_token_id=tokenizer.eos_token_id
     )
+    if do_sample:
+        generate_kwargs.update(
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+        )
+
     t = Thread(target=model.generate, kwargs=generate_kwargs)
     t.start()
 
@@ -71,6 +81,44 @@ def generate(
     for text in streamer:
         outputs.append(text)
         yield "".join(outputs).replace("<|EOT|>","")
+
+
+sampling_toggle = gr.Checkbox(label="Enable sampling (do_sample)", value=False)
+temperature_slider = gr.Slider(
+    label="Temperature",
+    minimum=0.05,
+    maximum=4.0,
+    step=0.05,
+    value=0.6,
+    visible=False,
+    interactive=False,
+)
+top_p_slider = gr.Slider(
+    label="Top-p (nucleus sampling)",
+    minimum=0.05,
+    maximum=1.0,
+    step=0.05,
+    value=0.9,
+    visible=False,
+    interactive=False,
+)
+top_k_slider = gr.Slider(
+    label="Top-k",
+    minimum=1,
+    maximum=1000,
+    step=1,
+    value=50,
+    visible=False,
+    interactive=False,
+)
+
+
+def update_sampling_controls(do_sample: bool):
+    return (
+        gr.update(visible=do_sample, interactive=do_sample),
+        gr.update(visible=do_sample, interactive=do_sample),
+        gr.update(visible=do_sample, interactive=do_sample),
+    )
 
 
 chat_interface = gr.ChatInterface(
@@ -84,27 +132,10 @@ chat_interface = gr.ChatInterface(
             step=1,
             value=DEFAULT_MAX_NEW_TOKENS,
         ),
-        # gr.Slider(
-        #     label="Temperature",
-        #     minimum=0,
-        #     maximum=4.0,
-        #     step=0.1,
-        #     value=0,
-        # ),
-        gr.Slider(
-            label="Top-p (nucleus sampling)",
-            minimum=0.05,
-            maximum=1.0,
-            step=0.05,
-            value=0.9,
-        ),
-        gr.Slider(
-            label="Top-k",
-            minimum=1,
-            maximum=1000,
-            step=1,
-            value=50,
-        ),
+        sampling_toggle,
+        temperature_slider,
+        top_p_slider,
+        top_k_slider,
         gr.Slider(
             label="Repetition penalty",
             minimum=1.0,
@@ -124,6 +155,11 @@ chat_interface = gr.ChatInterface(
 with gr.Blocks(css="style.css") as demo:
     gr.Markdown(DESCRIPTION)
     chat_interface.render()
+    sampling_toggle.change(
+        fn=update_sampling_controls,
+        inputs=[sampling_toggle],
+        outputs=[temperature_slider, top_p_slider, top_k_slider],
+    )
 
 if __name__ == "__main__":
     demo.queue().launch(share=True)
