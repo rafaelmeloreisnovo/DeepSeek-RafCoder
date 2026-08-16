@@ -1,0 +1,25 @@
+# NOTICE — upstream and authorship boundary
+
+This repository contains third-party material derived from the DeepSeek Coder open-source release alongside RafCoder/RAFAELOS additions.
+
+## Upstream material
+
+DeepSeek Coder code and complementary material remain attributable to DeepSeek and their respective upstream contributors. The repository preserves `LICENSE-CODE` (MIT code terms) and `LICENSE-MODEL` (DeepSeek model terms). Model redistribution and derivative-model obligations are governed by `LICENSE-MODEL`; this NOTICE does not replace or modify those terms.
+
+A fork, port, refactor, translation to another programming language, optimization, file reorganization, or large volume of modifications does not by itself establish independent authorship of upstream architecture, decomposition, interfaces, logic, algorithms, or specific expressive structure.
+
+## RafCoder / RAFAELOS additions
+
+Files described as RafCoder- or RAFAELOS-specific additions must be evaluated component by component. Presence under `core/`, `android/`, `docs/`, `scripts/`, `tools/`, or another fork-specific path is not by itself proof of independent authorship.
+
+Until conception, structure, logic, implementation, and genealogy are independently demonstrated for a component, its independence classification is:
+
+`UNKNOWN_ORIGIN/TOKEN_VAZIO_PER_COMPONENT`
+
+Technical standards, interoperable APIs, mathematical facts, and necessary protocol requirements may instead be classified as `FACT/TECHNICAL_REQUIREMENT`; that classification does not automatically extend to a particular implementation or expressive organization.
+
+## Audit boundary
+
+This NOTICE is an attribution/provenance clarification only. It does not relicense code or models, change copyright ownership, certify legal independence, or grant rights beyond the applicable license files.
+
+Where the exact legal consequence depends on jurisdiction, contract, patent, copyright, or other facts not established by repository evidence, the state is `LEGAL_REVIEW_REQUIRED`.
