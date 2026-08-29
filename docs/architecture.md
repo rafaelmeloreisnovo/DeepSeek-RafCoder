@@ -1,160 +1,164 @@
-# RafCoder Architecture
+# RafCoder Architecture Baseline
 
-## 1. Overview
+## 1. Purpose
 
-RafCoder is organized as a layered research and runtime repository.
+This document defines the current technical architecture of RafCoder as a native runtime research repository. It separates implemented behavior from planned optimization work so the repository remains auditable, navigable and safe to extend.
 
-Its current architecture combines:
+## 2. Architectural Scope
 
-1. a portable RAFAELOS C core;
-2. architecture-specific primitive routes;
-3. an Android JNI/NDK bridge;
-4. a low-level x86_64 NASM prototype;
-5. Python reference tooling;
-6. inherited DeepSeek Coder compatibility material;
-7. governance and responsible-use documentation.
+RafCoder is structured as an integrated runtime system with explicit separation between native execution, platform integration, inherited research material, benchmark evidence and governance constraints.
 
-The architectural goal is to keep experimental semantics, low-level execution and safety governance separated but traceable.
+| Layer | Responsibility | Current status |
+| --- | --- | --- |
+| RAFAELOS portable runtime core | Deterministic state transition kernel in C. | Implemented |
+| Architecture primitive layer | Stable primitive ABI with C fallback and assembly routes. | Implemented |
+| Android JNI/NDK bridge | Mobile bridge from Kotlin to native RAFAELOS core. | Implemented |
+| Core validation and benchmarks | Snapshot, reentrancy, primitive equivalence and timing artifacts. | Implemented |
+| Compatibility/research material | DeepSeek-derived research assets preserved under upstream notices. | Preserved |
+| Governance and safety | Security, license, human dignity and responsible-use constraints. | Implemented |
 
----
-
-## 2. Layer map
+## 3. Runtime Topology
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│ Governance and documentation                               │
-│ docs/, docs/governance/                                    │
-└────────────────────────────────────────────────────────────┘
-                            ↓
-┌────────────────────────────────────────────────────────────┐
-│ Android application layer                                  │
-│ android/app/src/main/java/com/rafcoder/app/MainActivity.kt │
-└────────────────────────────────────────────────────────────┘
-                            ↓ JNI
-┌────────────────────────────────────────────────────────────┐
-│ Native bridge                                              │
-│ android/app/src/main/cpp/native-lib.cpp                    │
-└────────────────────────────────────────────────────────────┘
-                            ↓ C ABI
-┌────────────────────────────────────────────────────────────┐
-│ Portable RAFAELOS core                                     │
-│ core/sector.c, core/sector.h                               │
-└────────────────────────────────────────────────────────────┘
-                            ↓ primitive interface
-┌────────────────────────────────────────────────────────────┐
-│ Architecture primitives                                    │
-│ core/arch/primitives.c                                     │
-│ core/arch/x86_64/primitives.S                              │
-│ core/arch/aarch64/primitives.S                             │
-│ planned: core/arch/armv7/primitives.S                      │
-└────────────────────────────────────────────────────────────┘
+MainActivity.kt
+  -> System.loadLibrary("rafcoder_native")
+  -> nativeSectorReport(iterations)
+  -> native-lib.cpp
+  -> run_sector(struct state*, uint32_t)
+  -> core/sector.c
+  -> core/arch/primitives.h
+  -> architecture route or C fallback
+  -> formatted native report to Android UI
 ```
 
----
+## 4. Core Contract
 
-## 3. RAFAELOS core contract
-
-The main portable entry point is:
+Primary callable:
 
 ```c
 void run_sector(struct state* s, uint32_t iterations);
 ```
 
-The core is responsible for:
+Responsibilities:
 
-- deterministic payload evolution;
-- FNV-style hash mixing;
-- CRC32 computation;
-- entropy approximation;
-- coherence/entropy update;
-- geometric invariant extraction;
-- compact output vector generation.
+- deterministic payload transformation;
+- entropy/coherence update;
+- invariant scoring and compact output generation;
+- architecture primitive usage through stable interfaces;
+- reentrant execution when each caller owns its `state` instance.
 
-The state structure is intentionally compact and suitable for native transport across JNI boundaries.
+The core is intentionally compact and dependency-light. It is suitable for host tests, Android NDK integration and low-level architecture experiments.
 
----
+## 5. Primitive Routing
 
-## 4. Android bridge contract
+Stable primitive surface:
 
-The Android bridge exposes:
-
-```kotlin
-external fun nativeMessage(): String
-external fun nativeSectorReport(iterations: Int): String
+```text
+core_xor_u64
+core_mul_u64
+core_rotl_u64
+core_load_u8
+core_store_u8
+core_xor_block
 ```
 
-The report function executes `run_sector()` and formats the native state for UI inspection.
+Current routing behavior:
 
-This is currently an observability bridge, not yet a performance benchmark harness.
+| Target | Route | Notes |
+| --- | --- | --- |
+| Generic unsupported host | `core/arch/primitives.c` | Portable C fallback. |
+| Linux `x86_64` host | `core/arch/x86_64/primitives.S` | Host-side assembly route. |
+| Android `armeabi-v7a` / ARMv7 | `core/arch/armv7/primitives.S` | Dedicated ARM32 route. |
+| Android `arm64-v8a` / AArch64 | `core/arch/aarch64/primitives.S` | Dedicated AArch64 route. |
 
-A dedicated benchmark harness now exists in `core/benchmark_run_sector.c` with fixed warmup/sample counts and CSV/JSON output, strictly for timing observation of `run_sector()` under controlled iteration load.
+Validation target:
 
----
+```bash
+make -C core test_primitives_equivalence
+./core/test_primitives_equivalence
+```
 
-## 5. Architecture primitive selection
+The equivalence test compares primitive behavior against reference C semantics for XOR, multiplication, rotation, byte load/store and block XOR.
 
-Current CMake selection:
+## 6. Android Delivery Contract
 
-| ABI | Primitive route |
-| --- | --- |
-| `arm64-v8a` | `core/arch/aarch64/primitives.S` plus shared C sources |
-| `armeabi-v7a` | C fallback in `core/arch/primitives.c` |
-| `x86_64` | `core/arch/x86_64/primitives.S` plus shared C sources |
+Official Android output scope:
 
-The ARM32 route is planned but not yet implemented.
+- `armeabi-v7a`
+- `arm64-v8a`
 
----
+Build expectations:
 
-## 6. Upstream DeepSeek compatibility
+- native `.so` output exists for each official ABI;
+- debug APK artifacts are generated per ABI;
+- unsigned release APK artifacts are generated per ABI;
+- signed release APK artifacts are generated per ABI when signing secrets are available;
+- SHA256 checksum artifacts are uploaded for traceability.
 
-The repository preserves upstream DeepSeek Coder files and documentation for research compatibility.
+Reference process: `docs/android_native_build_release.md`.
 
-This layer is not the same as the RAFAELOS native runtime layer. It should be treated as inherited compatibility material with its own license and model-use constraints.
+## 7. CI and Evidence Chain
 
----
+Core CI:
 
-## 7. Governance layer
+```text
+.github/workflows/core-ci.yml
+```
 
-The governance layer defines project constraints for:
+Required checks:
 
-- licensing;
-- responsible use;
-- child protection;
-- human dignity;
-- epistemic integrity;
-- safe abstention/refusal behavior;
-- professional release discipline.
+- static core build;
+- primitive equivalence test;
+- deterministic snapshot test;
+- reentrancy test.
 
-This layer is part of the architecture because it constrains what the system may claim, expose or automate.
+Benchmark artifact workflow:
 
----
+```text
+.github/workflows/core-benchmarks.yml
+```
 
-## 8. Implemented vs planned
+Published artifact group:
 
-| Component | Status |
-| --- | --- |
-| `rafaelos.asm` x86_64 prototype | Implemented |
-| `core/sector.c` portable C core | Implemented |
-| Android JNI call into C core | Integrated |
-| Android APK CI | Implemented |
-| ARM64 primitive assembly | Implemented |
-| ARM32 primitive assembly | Planned |
-| NEON block operations | Planned |
-| Reentrant sector workspace | Planned |
-| Deterministic snapshot CI | Planned |
+```text
+rafcoder-core-benchmarks
+```
 
----
+Expected benchmark files:
 
-## 9. F de resolvido
+- `run-sector.csv`
+- `run-sector.json`
+- `metrics-summary.csv`
+- `metrics-manifest.json`
+- `binary-size.csv`
+- `sha256sum.txt`
+- `abi-build-metadata.csv`
+- `snapshot.txt`
+- `reentrancy.txt`
+- `primitives-equivalence.txt`
 
-The repository now has a documented architectural identity separating runtime, primitives, Android, upstream compatibility and governance.
+CI measurements are valid for regression tracking inside the same CI environment. They are not universal device-performance claims.
 
-## 10. F de gap
+## 8. Current Limitations
 
-The architecture documentation still needs to be connected to tests, CI status badges and pull-request review templates.
+- NEON-optimized block routes are not yet implemented.
+- Device-level Android runtime benchmarks are not yet produced.
+- Cross-runtime comparison between Python reference, portable C, x86_64 ASM, ARMv7 ASM and AArch64 ASM is not yet formalized.
+- Signed release publication is conditional on repository secrets and remains a CI artifact process, not a full distribution policy.
 
-## 11. F de next
+## 9. Repository Hygiene Standard
 
-1. Add deterministic snapshot tests.
-2. Add ARM32 primitive implementation.
-3. Add PR checklist enforcing architecture and governance distinctions.
+Project root files must remain intentional and classified under one of the following:
+
+- runtime source;
+- build/release infrastructure;
+- documentation/governance;
+- compatibility/research assets.
+
+Ad-hoc exploratory notes must be relocated to `docs/` or removed to avoid ambiguity in the release chain.
+
+## 10. Next Architecture Targets
+
+1. Add NEON block paths for ARM32 and ARM64.
+2. Add Android runtime benchmark instrumentation for both official ABIs.
+3. Extend benchmark artifacts to compare Python, C fallback, x86_64 ASM, ARMv7 ASM and AArch64 ASM.
