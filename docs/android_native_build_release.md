@@ -1,90 +1,106 @@
-# Android Native Build + Release (JNI/NDK)
+# Android Native Build and Release Standard (JNI/NDK)
 
-## Source of truth
-- Android project root: `android/`
-- Native core: `android/app/src/main/cpp/native-lib.cpp`
-- ABI matrix oficial (Gradle `ndk.abiFilters` + CMake): `armeabi-v7a`, `arm64-v8a`
-- `x86_64` não é empacotado na trilha oficial (release/CI)
-- CI workflow: `.github/workflows/android-native-ci.yml`
-- Gradle execution path (official): `android/gradlew`
-- Gradle wrapper version: `8.14.3`
-- Wrapper JAR bootstrap: `scripts/ensure_gradle_wrapper_jar.sh` (não versiona binário no repositório)
+## 1. Objective
 
-## Artifact map (CI)
-- Debug unsigned APK (`android/artifacts/debug/`):
-  - `rafcoder-apk-debug-armeabi-v7a`
-  - `rafcoder-apk-debug-arm64-v8a`
-- Release unsigned APK (`android/artifacts/unsigned-release/`):
-  - `rafcoder-apk-release-unsigned-armeabi-v7a`
-  - `rafcoder-apk-release-unsigned-arm64-v8a`
-- Release signed APK (`android/artifacts/signed-release/`, requires signing secrets):
-  - `rafcoder-apk-release-signed-armeabi-v7a`
-  - `rafcoder-apk-release-signed-arm64-v8a`
+This document defines the Android build and artifact process for RafCoder: JNI/NDK compilation, ABI validation, APK staging, checksum generation and GitHub Actions artifact naming.
 
-## Local build
-Pré-requisito: configurar Android SDK em `ANDROID_HOME` ou `android/local.properties`, usar o Gradle Wrapper oficial em `android/gradlew` e inicializar o bootstrap do wrapper jar.
+The goal is reproducibility first. Every generated APK must be traceable to an ABI, build type and checksum.
+
+## 2. Source of Truth
+
+| Area | Path |
+| --- | --- |
+| Android project root | `android/` |
+| Kotlin entrypoint | `android/app/src/main/java/com/rafcoder/app/MainActivity.kt` |
+| Native bridge | `android/app/src/main/cpp/native-lib.cpp` |
+| Native CMake route | `android/app/src/main/cpp/CMakeLists.txt` |
+| Gradle application config | `android/app/build.gradle.kts` |
+| Local build orchestrator | `scripts/android_build_matrix.sh` |
+| CI workflow | `.github/workflows/android-native-ci.yml` |
+
+## 3. Supported ABI Matrix
+
+| ABI | Primitive route | Artifact expectation |
+| --- | --- | --- |
+| `armeabi-v7a` | `core/arch/armv7/primitives.S` | Debug, unsigned release and optional signed release APK. |
+| `arm64-v8a` | `core/arch/aarch64/primitives.S` | Debug, unsigned release and optional signed release APK. |
+
+The official Android release path does not package `x86_64` artifacts.
+
+## 4. Toolchain Contract
+
+| Tool | Requirement |
+| --- | --- |
+| Gradle wrapper entrypoint | `android/gradlew` |
+| Gradle version | `8.14.3` |
+| Java version in CI | `17` |
+| Android SDK | Installed by the Android setup action in CI. |
+| Wrapper JAR policy | Runtime bootstrap only; wrapper JAR is not treated as a permanent source artifact. |
+
+## 5. Build Phases
+
+### 5.1 Unsigned validation build
+
+Command family:
+
+```bash
+./android/gradlew --project-dir android --no-daemon :app:clean :app:assembleDebug :app:assembleRelease
+```
+
+Validation requirements:
+
+- native `.so` libraries exist for `armeabi-v7a` and `arm64-v8a`;
+- debug APKs are staged into `android/artifacts/debug/`;
+- unsigned release APKs are staged into `android/artifacts/unsigned-release/`;
+- SHA256 checksums are written for staged unsigned/debug outputs.
+
+### 5.2 Signed release build
+
+Signed release generation is conditional on the signing environment being configured by the maintainer or CI settings.
+
+Validation requirements:
+
+- signing material must be available outside the repository;
+- signed release APKs are staged into `android/artifacts/signed-release/`;
+- SHA256 checksums are written for signed outputs;
+- no signing material is committed to the repository.
+
+## 6. Local Execution
 
 ```bash
 ./scripts/bootstrap_gradle_wrapper.sh
 ./scripts/android_build_matrix.sh
 ```
 
-O fluxo local agora é dividido em fases explícitas e auditáveis:
+For signed release generation, configure the signing environment locally or through repository CI settings before running the build matrix.
 
-1. `build_unsigned_release()`
-   - Executa exatamente: `:app:clean :app:assembleDebug :app:assembleRelease`
-   - Não depende de variáveis de assinatura
-   - Valida ABIs de `debug` e `release`
-   - Coleta APKs em `artifacts/unsigned-release`
+## 7. CI Artifact Publication
 
-2. `build_signed_release()`
-   - Só executa quando **todas** as variáveis abaixo estão presentes:
-     - `ANDROID_KEYSTORE_PATH`
-     - `ANDROID_KEYSTORE_PASSWORD`
-     - `ANDROID_KEY_ALIAS`
-     - `ANDROID_KEY_PASSWORD`
-   - Valida explicitamente existência de keystore em `ANDROID_KEYSTORE_PATH`
-   - Executa exatamente: `:app:clean :app:assembleRelease`
-   - Valida ABIs de `release` assinado
-   - Coleta APKs em `artifacts/signed-release`
+| Artifact name | Contents |
+| --- | --- |
+| `rafcoder-apk-debug-armeabi-v7a` | `rafcoder-armeabi-v7a-debug.apk` |
+| `rafcoder-apk-debug-arm64-v8a` | `rafcoder-arm64-v8a-debug.apk` |
+| `rafcoder-apk-release-unsigned-armeabi-v7a` | `rafcoder-armeabi-v7a-release-unsigned.apk` |
+| `rafcoder-apk-release-unsigned-arm64-v8a` | `rafcoder-arm64-v8a-release-unsigned.apk` |
+| `rafcoder-apk-unsigned-sha256sum` | unsigned/debug checksum file |
+| `rafcoder-apk-release-signed-armeabi-v7a` | signed ARM32 release APK, when signing is configured |
+| `rafcoder-apk-release-signed-arm64-v8a` | signed ARM64 release APK, when signing is configured |
+| `rafcoder-apk-signed-sha256sum` | signed checksum file, when signing is configured |
 
-## Signed release (local)
-Set variables before running build:
+## 8. Release Integrity Rules
 
-```bash
-export ANDROID_KEYSTORE_PATH=/absolute/path/release.keystore
-export ANDROID_KEYSTORE_PASSWORD='***'
-export ANDROID_KEY_ALIAS='***'
-export ANDROID_KEY_PASSWORD='***'
-./scripts/android_build_matrix.sh
-```
+- Unsigned release APKs are valid for validation, internal review and CI traceability only.
+- The CI must fail fast if a required ABI native library is missing.
+- The CI must fail fast if an expected ABI APK cannot be resolved.
+- Checksums are required for staged APK families.
+- Benchmark claims must cite benchmark artifacts, not APK existence alone.
 
-Sem essas variáveis, o script mantém o build unsigned e **ignora** a fase signed.
+## 9. Current Limitations
 
-## GitHub Actions secrets for signed release
-- `ANDROID_KEYSTORE_BASE64`
-- `ANDROID_KEYSTORE_PASSWORD`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
+- This process validates build outputs, not on-device runtime performance.
+- Device-level runtime benchmarking still requires Android instrumentation or a real device runner.
+- NEON-specific performance claims are not valid until NEON routes and device measurements exist.
 
-Without these secrets CI still produces unsigned debug/release APKs.
+## 10. Operational Note
 
-## Artifact map (CI)
-### `android/artifacts/debug`
-- `rafcoder-apk-debug-armeabi-v7a` -> `android/artifacts/debug/rafcoder-armeabi-v7a-debug.apk`
-- `rafcoder-apk-debug-arm64-v8a` -> `android/artifacts/debug/rafcoder-arm64-v8a-debug.apk`
-
-### `android/artifacts/unsigned-release`
-- `rafcoder-apk-release-unsigned-armeabi-v7a` -> `android/artifacts/unsigned-release/rafcoder-armeabi-v7a-release-unsigned.apk`
-- `rafcoder-apk-release-unsigned-arm64-v8a` -> `android/artifacts/unsigned-release/rafcoder-arm64-v8a-release-unsigned.apk`
-
-### `android/artifacts/signed-release` (quando signing secrets existirem)
-- `rafcoder-apk-release-signed-armeabi-v7a` -> `android/artifacts/signed-release/rafcoder-armeabi-v7a-release-signed.apk`
-- `rafcoder-apk-release-signed-arm64-v8a` -> `android/artifacts/signed-release/rafcoder-arm64-v8a-release-signed.apk`
-
-## Wrapper/Gradle version policy
-- Official entrypoint for Android builds: `./android/gradlew` (local + CI) and `android/gradlew.bat` on Windows.
-- Wrapper JAR bootstrap: `./scripts/bootstrap_gradle_wrapper.sh` (fetches `android/gradle/wrapper/gradle-wrapper.jar` em runtime no CI/local, não versionar binário no repositório).
-- Gradle version is pinned to `8.14.3` in `android/gradle/wrapper/gradle-wrapper.properties` and CI enforces this same version via `GRADLE_VERSION=8.14.3`.
-
-- O script `./scripts/android_build_matrix.sh` remove `android/gradle/wrapper/gradle-wrapper.jar` no final da execução para manter o wrapper binário apenas em runtime.
+`scripts/android_build_matrix.sh` removes the bootstrapped Gradle wrapper JAR at exit to keep binary bootstrap behavior explicit.

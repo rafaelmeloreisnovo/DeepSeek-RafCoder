@@ -27,14 +27,20 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
-        }
 
         externalNativeBuild {
             cmake {
                 cppFlags += listOf("-std=c++17", "-O2")
             }
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a")
+            isUniversalApk = false
         }
     }
 

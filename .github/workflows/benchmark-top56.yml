@@ -1,0 +1,199 @@
+name: Benchmark Top-56 Runtime Binary Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: Benchmark repeats per iteration case
+        required: false
+        default: "2000"
+      samples:
+        description: Samples per iteration case
+        required: false
+        default: "5"
+      cases:
+        description: Comma-separated sector iteration cases
+        required: false
+        default: "1,7,42,128,512,2048"
+  push:
+    branches:
+      - main
+    paths:
+      - "core/**"
+      - "scripts/benchmark_sector_top56.py"
+      - ".github/workflows/benchmark-top56.yml"
+  pull_request:
+    paths:
+      - "core/**"
+      - "scripts/benchmark_sector_top56.py"
+      - ".github/workflows/benchmark-top56.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  benchmark-top56:
+    name: Build runtime binary and benchmark report (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            cc: gcc
+          - compiler: clang
+            cc: clang
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install native toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang binutils file
+
+      - name: Generate runtime binary, deterministic snapshots and Top-56 benchmark report
+        env:
+          CC: ${{ matrix.cc }}
+        run: |
+          python scripts/benchmark_sector_top56.py \
+            --out benchmark_artifacts_${{ matrix.compiler }} \
+            --cc "${{ matrix.cc }}" \
+            --repeats "${{ github.event.inputs.repeats || '2000' }}" \
+            --samples "${{ github.event.inputs.samples || '5' }}" \
+            --cases "${{ github.event.inputs.cases || '1,7,42,128,512,2048' }}"
+
+      - name: Package runtime binary produced during the action
+        run: |
+          set -euo pipefail
+          PKG="rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}"
+          mkdir -p "dist/${PKG}"
+
+          cp "benchmark_artifacts_${{ matrix.compiler }}/benchmark_sector" "dist/${PKG}/rafcoder-sector-runtime"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/benchmark_sector_harness.c" "dist/${PKG}/benchmark_sector_harness.c"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/benchmark_top56.md" "dist/${PKG}/benchmark_top56.md"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/benchmark_top56.json" "dist/${PKG}/benchmark_top56.json"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/benchmark_snapshots.json" "dist/${PKG}/benchmark_snapshots.json"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/benchmark_matrix.csv" "dist/${PKG}/benchmark_matrix.csv"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/build_stdout.txt" "dist/${PKG}/build_stdout.txt"
+          cp "benchmark_artifacts_${{ matrix.compiler }}/build_stderr.txt" "dist/${PKG}/build_stderr.txt"
+
+          chmod +x "dist/${PKG}/rafcoder-sector-runtime"
+
+          FILE_DESC="$(file "dist/${PKG}/rafcoder-sector-runtime" || true)"
+          BIN_SHA="$(sha256sum "dist/${PKG}/rafcoder-sector-runtime" | awk '{print $1}')"
+          export PKG FILE_DESC BIN_SHA
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          pkg = Path("dist") / os.environ["PKG"]
+          payload = {
+              "schema": "rafcoder.runtime_artifact_manifest.v1",
+              "repository": os.environ["GH_REPOSITORY"],
+              "ref": os.environ["GH_REF"],
+              "sha": os.environ["GH_SHA"],
+              "runner_os": os.environ["RUNNER_OS_NAME"],
+              "runner_arch": os.environ["RUNNER_ARCH_NAME"],
+              "compiler": os.environ["MATRIX_COMPILER"],
+              "cc": os.environ["MATRIX_CC"],
+              "binary": "rafcoder-sector-runtime",
+              "binary_sha256": os.environ["BIN_SHA"],
+              "binary_file_description": os.environ["FILE_DESC"],
+              "reports": [
+                  "benchmark_top56.md",
+                  "benchmark_top56.json",
+                  "benchmark_snapshots.json",
+                  "benchmark_matrix.csv",
+                  "build_stdout.txt",
+                  "build_stderr.txt",
+              ],
+          }
+          (pkg / "ARTIFACT_MANIFEST.json").write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+          PY
+
+          {
+            echo "# RafCoder runtime binary artifact"
+            echo
+            echo "Generated inside GitHub Actions runtime, not committed to the repository."
+            echo
+            echo "## Build context"
+            echo
+            echo "- repository: ${{ github.repository }}"
+            echo "- ref: ${{ github.ref }}"
+            echo "- sha: ${{ github.sha }}"
+            echo "- runner_os: ${{ runner.os }}"
+            echo "- runner_arch: ${{ runner.arch }}"
+            echo "- compiler: ${{ matrix.compiler }}"
+            echo "- cc: ${{ matrix.cc }}"
+            echo
+            echo "## Binary inspection"
+            echo
+            echo "${FILE_DESC}"
+            echo
+            echo "## Checksums"
+            echo
+            sha256sum "dist/${PKG}"/*
+          } > "dist/${PKG}/ARTIFACT_MANIFEST.md"
+
+          tar -C dist -czf "${PKG}.tar.gz" "${PKG}"
+          sha256sum "${PKG}.tar.gz" > "${PKG}.tar.gz.sha256"
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_REF: ${{ github.ref }}
+          GH_SHA: ${{ github.sha }}
+          RUNNER_OS_NAME: ${{ runner.os }}
+          RUNNER_ARCH_NAME: ${{ runner.arch }}
+          MATRIX_COMPILER: ${{ matrix.compiler }}
+          MATRIX_CC: ${{ matrix.cc }}
+
+      - name: Smoke test packaged runtime binary
+        run: |
+          set -euo pipefail
+          PKG="rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}"
+          "dist/${PKG}/rafcoder-sector-runtime" 42 10 > "dist/${PKG}/runtime_smoke_test.txt"
+          cat "dist/${PKG}/runtime_smoke_test.txt"
+
+      - name: Print specialized benchmark report
+        run: |
+          cat "benchmark_artifacts_${{ matrix.compiler }}/benchmark_top56.md"
+
+      - name: Upload benchmark report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rafcoder-top56-benchmark-report-${{ matrix.compiler }}
+          path: |
+            benchmark_artifacts_${{ matrix.compiler }}/benchmark_top56.md
+            benchmark_artifacts_${{ matrix.compiler }}/benchmark_top56.json
+            benchmark_artifacts_${{ matrix.compiler }}/benchmark_snapshots.json
+            benchmark_artifacts_${{ matrix.compiler }}/benchmark_matrix.csv
+            benchmark_artifacts_${{ matrix.compiler }}/build_stdout.txt
+            benchmark_artifacts_${{ matrix.compiler }}/build_stderr.txt
+            benchmark_artifacts_${{ matrix.compiler }}/benchmark_sector_harness.c
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload runtime binary package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}
+          path: |
+            rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}.tar.gz
+            rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}.tar.gz.sha256
+            dist/rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}/ARTIFACT_MANIFEST.md
+            dist/rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}/ARTIFACT_MANIFEST.json
+            dist/rafcoder-sector-runtime-linux-x86_64-${{ matrix.compiler }}/runtime_smoke_test.txt
+          if-no-files-found: error
+          retention-days: 30
